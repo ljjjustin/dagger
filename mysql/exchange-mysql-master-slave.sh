@@ -109,7 +109,8 @@ do
 done
 ## reset mysql slave and make it to be writable
 echo "reset slave and make it writable..."
-exec_mysql_cmd ${slave_node} 'STOP SLAVE; CHANGE MASTER TO MASTER_HOST=""; RESET SLAVE; set global read_only=0'
+exec_mysql_cmd ${slave_node} 'STOP SLAVE; CHANGE MASTER TO MASTER_HOST=""; RESET SLAVE'
+exec_mysql_cmd ${slave_node} 'set global read_only=0'
 ## update mysql configuration file
 echo "update slave config file..."
 set_mysql_config ${slave_node} mysqld read_only 0
