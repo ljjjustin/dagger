@@ -75,7 +75,7 @@ if [[ "${real_master}" != "${master_node}" ]]; then
 fi
 ## dumped and copy database to slave node
 echo "dumping and coping all database to slave node..."
-ssh root@${slave_node}  "nc -l 1024 > /tmp/master.sql" &
+ssh root@${slave_node}  "nc -d -l 1024 > /tmp/master.sql &"
 ssh root@${master_node} "mysqldump --single-transaction --all-databases --master-data=1 -e | nc ${slave_node} 1024"
 
 ## import the dump file
