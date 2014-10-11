@@ -12,6 +12,18 @@ exec_mysql_cmd() {
     ssh root@${host} 'mysql -e "'${cmd}'"'
 }
 
+read_mysql_variable() {
+    local host=$1
+    local variable=$2
+    exec_mysql_cmd ${host} 'show global variables' | grep ${variable} | awk '{print $2}'
+}
+
+read_slave_state() {
+    local host=$1
+    local field=$2
+    exec_mysql_cmd ${host} 'show slave status\G' | grep ${field} | awk '{print $2}'
+}
+
 cleanup_on_exit()
 {
     exit_code=$? 
@@ -63,8 +75,8 @@ if [[ "${real_master}" != "${master_node}" ]]; then
 fi
 ## dumped and copy database to slave node
 echo "dumping and coping all database to slave node..."
-ssh root@${slave_node} 'nc -l 1024 > /tmp/master.sql'
-ssh root@${master_node} 'mysqldump --single-transaction --all-databases --master-data=1 -e | nc ${slave_node} 1024'
+ssh root@${slave_node}  "nc -l 1024 > /tmp/master.sql" &
+ssh root@${master_node} "mysqldump --single-transaction --all-databases --master-data=1 -e | nc ${slave_node} 1024"
 
 ## import the dump file
 echo "load data from sql file..."
