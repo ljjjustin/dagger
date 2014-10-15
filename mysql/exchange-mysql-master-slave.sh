@@ -24,6 +24,12 @@ read_slave_state() {
     exec_mysql_cmd ${host} 'show slave status\G' | grep ${field} | awk '{print $2}'
 }
 
+read_master_state() {
+    local host=$1
+    local field=$2
+    exec_mysql_cmd ${host} 'show master status\G' | grep ${field} | awk '{print $2}'
+}
+
 set_mysql_config() {
     local host=$1
     local section=$2
@@ -107,19 +113,25 @@ do
     sleep 3 && echo -n ">"
     has_synchronized=$(read_slave_state ${slave_node} Seconds_Behind_Master)
 done
-## reset mysql slave and make it to be writable
-echo "reset slave and make it writable..."
-exec_mysql_cmd ${slave_node} 'STOP SLAVE; CHANGE MASTER TO MASTER_HOST=""; RESET SLAVE'
-exec_mysql_cmd ${slave_node} 'set global read_only=0'
+set -x
+## reset mysql slave and 
+echo "reset slave node"
+exec_mysql_cmd ${slave_node} "STOP SLAVE"
+exec_mysql_cmd ${slave_node} "CHANGE MASTER TO MASTER_HOST=''"
+## read slave node master info
+master_log_file=$(read_master_state ${slave_node} File)
+master_log_position=$(read_master_state ${slave_node} Position)
+## make slave node writable
+exec_mysql_cmd ${slave_node} "set global read_only=0"
 ## update mysql configuration file
 echo "update slave config file..."
 set_mysql_config ${slave_node} mysqld read_only 0
 
 ## reset mysql master and make it to be slave
 echo "reset master and make it to be slave..."
-exec_mysql_cmd ${master_node} 'STOP SLAVE'
-exec_mysql_cmd ${master_node} "CHANGE MASTER TO MASTER_HOST='${slave_node}',MASTER_USER='${repl_username}',MASTER_PASSWORD='${repl_password}'"
-exec_mysql_cmd ${master_node} 'START SLAVE'
+exec_mysql_cmd ${master_node} "STOP SLAVE"
+exec_mysql_cmd ${master_node} "CHANGE MASTER TO MASTER_HOST='${slave_node}',MASTER_USER='${repl_username}',MASTER_PASSWORD='${repl_password}',MASTER_LOG_FILE='${master_log_file}',MASTER_LOG_POS=${master_log_position}"
+exec_mysql_cmd ${master_node} "START SLAVE"
 ## update mysql configuration file
 echo "update master config file..."
 set_mysql_config ${master_node} mysqld read_only 1
